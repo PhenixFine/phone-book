@@ -1,10 +1,12 @@
 package search
 
+// based on code from:
+// https://www.geeksforgeeks.org/jump-search/
+// https://hyperskill.org/learn/step/3548
 class JumpSearch(phoneBook: Array<String>) : Search(phoneBook) {
     private var currentRight = 0
     private var prevRight = 0
     private var jump = 0
-    private var checkPhone = { i: Int -> phoneBook[i].substring((0 until phoneBook[i].lastIndexOf(' '))) }
 
     override fun findWork() {
         reset()
