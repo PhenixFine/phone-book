@@ -6,6 +6,7 @@ abstract class Search(protected val phoneBook: Array<String>) {
     protected var find = ""
     protected var returnNum: Int? = null
     protected val lastIndex = if (phoneBook.isEmpty()) -1 else phoneBook.lastIndex
+    protected val checkPhone = { i: Int -> phoneBook[i].substring((0 until phoneBook[i].lastIndexOf(' '))) }
     private val time = TrackTime()
     private var found = 0
 
