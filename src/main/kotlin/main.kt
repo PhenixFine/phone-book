@@ -6,14 +6,18 @@ import java.io.File
 private const val PATH = "src/main/kotlin/textFiles/"
 private val PORT_DIRECTORY = { import(PATH + "directory.txt", true) }
 private var PHONE_BOOK = PORT_DIRECTORY()
+private val FIND = import(PATH + "find.txt")
 private val BUBBLE_SORT_TIME = TrackTime()
 private val QUICK_SORT_TIME = TrackTime()
 private const val CUTOFF = 10
 
 fun main() {
-    val find = import(PATH + "find.txt")
+    val timeLimit = linSearch() * 10
 
-    search(find)
+    bubbleJump(timeLimit)
+    PHONE_BOOK = PORT_DIRECTORY()
+    quickBinary(timeLimit)
+    hashSearch(timeLimit)
 }
 
 private fun import(fileName: String, moveNumbers: Boolean = false): Array<String> {
@@ -30,42 +34,57 @@ private fun import(fileName: String, moveNumbers: Boolean = false): Array<String
     return tempList.toTypedArray()
 }
 
-private fun search(find: Array<String>) {
+private fun linSearch(stopped: Boolean = false, timeElapsed: Long = 0L): Long {
     val linearSearch = LinearSearch(PHONE_BOOK)
-    val jumpSearch: JumpSearch
-    val strStart = { add: String -> "Start searching ($add)..." }
-    val formatTime = { time: Long -> String.format("%1\$tM min. %1\$tS sec. %1\$tL ms.", time) }
-    val printLines = { found: Int, sort: Boolean, sortTime: Long, add: String, searchTime: Long ->
-        println("Found $found / ${find.size} entries. Time taken: ${formatTime(sortTime + searchTime)}")
-        if (sort) {
-            println("Sorting time: " + formatTime(sortTime) + add)
-            println("Searching time: " + formatTime(searchTime))
-        }
-    }
+    val add = if (stopped) " - STOPPED, moved to linear search" else ""
 
-    println(strStart("linear search"))
-    for (name in find) linearSearch.find(name)
-    printLines(linearSearch.found(), false, 0L, "", linearSearch.timeElapsed())
+    if (!stopped) println(strStart("linear search"))
+    for (name in FIND) linearSearch.find(name)
+    printLines(linearSearch.found(), stopped, timeElapsed, add, linearSearch.timeElapsed())
+    return linearSearch.timeElapsed()
+}
 
+private fun bubbleJump(timeLimit: Long) {
     println("\n" + strStart("bubble sort + jump search"))
-    if (bubbleSort(linearSearch.timeElapsed() * 10)) {
-        jumpSearch = JumpSearch(PHONE_BOOK)
-        for (name in find) jumpSearch.find(name)
+    if (bubbleSort(timeLimit)) {
+        val jumpSearch = JumpSearch(PHONE_BOOK)
+        for (name in FIND) jumpSearch.find(name)
         printLines(jumpSearch.found(), true, BUBBLE_SORT_TIME.elapsed(), "", jumpSearch.timeElapsed())
-    } else {
-        linearSearch.resetStats()
-        for (name in find) linearSearch.find(name)
-        printLines(linearSearch.found(), true, BUBBLE_SORT_TIME.elapsed(), " - STOPPED, moved to linear search", linearSearch.timeElapsed())
-    }
+    } else linSearch(true, BUBBLE_SORT_TIME.elapsed())
+}
 
+private fun quickBinary(timeLimit: Long) {
     println("\n" + strStart("quick sort + binary search"))
-    PHONE_BOOK = PORT_DIRECTORY()
     QUICK_SORT_TIME.start()
     quickSort(0, PHONE_BOOK.lastIndex)
     QUICK_SORT_TIME.stop()
-    val binarySearch = BinarySearch(PHONE_BOOK)
-    for (name in find) binarySearch.find(name)
-    printLines(binarySearch.found(), true, QUICK_SORT_TIME.elapsed(), "", binarySearch.timeElapsed())
+    if (QUICK_SORT_TIME.elapsed() < timeLimit) {
+        val binarySearch = BinarySearch(PHONE_BOOK)
+        for (name in FIND) binarySearch.find(name)
+        printLines(binarySearch.found(), true, QUICK_SORT_TIME.elapsed(), "", binarySearch.timeElapsed())
+    } else linSearch(true, QUICK_SORT_TIME.elapsed())
+}
+
+private fun hashSearch(timeLimit: Long) {
+    val hashPhone = hashMapOf<String, Int>()
+    val hashTime = TrackTime()
+    val hashSearchTime = TrackTime()
+    var hashFound = 0
+    val getName = { i: Int -> PHONE_BOOK[i].substring((0 until PHONE_BOOK[i].lastIndexOf(' '))) }
+    val getNumber =
+        { i: Int -> PHONE_BOOK[i].substring(PHONE_BOOK[i].lastIndexOf(' ') + 1..PHONE_BOOK[i].lastIndex).toInt() }
+
+    println("\n" + strStart("Start searching (hash table)..."))
+    hashTime.start()
+    for (entry in PHONE_BOOK.indices) hashPhone[getName(entry)] = getNumber(entry)
+    hashTime.stop()
+
+    if (hashTime.elapsed() < timeLimit) {
+        hashSearchTime.start()
+        for (name in FIND) if (hashPhone.containsKey(name)) hashFound++
+        hashSearchTime.stop()
+        printLines(hashFound, true, hashTime.elapsed(), "", hashSearchTime.elapsed(), true)
+    } else linSearch(true, hashTime.elapsed())
 }
 
 private fun bubbleSort(timeLimit: Long): Boolean {
@@ -89,7 +108,7 @@ private fun bubbleSort(timeLimit: Long): Boolean {
     return !stop
 }
 
-// Quick Sort Implementation with median-of-three partitioning
+// Quick Sort Implementation with median-of-three partitioning and insertion sort ( for when sub section is small enough )
 // modified from: https://bit.ly/35Cr3Lq
 private fun quickSort(low: Int, high: Int) {
     if (low + CUTOFF > high) insertionSort(low, high) else {
@@ -134,3 +153,22 @@ private fun insertionSort(low: Int, high: Int) {
         PHONE_BOOK[j] = temp
     }
 }
+
+private fun formatTime(time: Long) = String.format("%1\$tM min. %1\$tS sec. %1\$tL ms.", time)
+
+private fun printLines(
+    found: Int,
+    sort: Boolean,
+    sortTime: Long,
+    add: String,
+    searchTime: Long,
+    create: Boolean = false
+) {
+    println("Found $found / ${FIND.size} entries. Time taken: ${formatTime(sortTime + searchTime)}")
+    if (sort) {
+        println((if (create) "Creating" else "Sorting") + " time: " + formatTime(sortTime) + add)
+        println("Searching time: " + formatTime(searchTime))
+    }
+}
+
+private fun strStart(add: String) = "Start searching ($add)..."
